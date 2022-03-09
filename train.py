@@ -5,8 +5,9 @@ from model import YourClass
 from pathlib import Path
 import torch
 from torch.optim.lr_scheduler import StepLR
+from torch import optim
 
-
+lr_warm_up = True
 
 def train(run_id: str, clean_data_root: Path, models_dir: Path, 
         save_every: int, backup_every: int, vis_every: int, force_restart: bool,
@@ -45,6 +46,14 @@ def train(run_id: str, clean_data_root: Path, models_dir: Path,
             print("No model \"%s\" found, starting training from scratch." % run_id)
     else:
         print("Starting the training from scratch.")
+
+    if lr_warm_up:
+        # warm up the first 1/4 epochs
+        warm_up_step = (len(loader) - init_step)//4
+        warm_up_with_step_lr = lambda step: (step+1) / warm_up_step if step < warm_up_step \
+            else 1
+        scheduler = optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=warm_up_with_step_lr)
+        
     model.train()
     
     device_name = str(torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU")
